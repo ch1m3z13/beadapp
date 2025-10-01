@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { base } from 'viem/chains'  // Built-in Base config
+import { base } from 'wagmi/chains'  // Updated: from 'wagmi/chains' (matches docs)
 
 interface Props {
   project: string
@@ -22,7 +22,7 @@ export default function BaseTxButton({ project }: Props) {
   const trackProject = () => {
     if (!address) return
     writeContract({
-      address: '0xYourDeployedContractAddressHere',  // Deploy Tracker.sol first, paste addr
+      address: '0xE620D6855B97C357C316b1c43E1BD805Dbf7660e',  // Deploy Tracker.sol first, paste addr
       abi: [
         {
           name: 'trackProject',
