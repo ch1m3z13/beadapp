@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import BaseTxButton from '../../components/BaseTxButton'
-import { TwitterApi } from 'twitter-api-v2'
+// Removed: import { TwitterApi } from 'twitter-api-v2'  // No longer needed here
 
 export default function WingmanFrame() {
   const [project, setProject] = useState('@MorphLayer')
@@ -12,13 +12,13 @@ export default function WingmanFrame() {
   const getUpdate = async () => {
     setLoading(true)
     try {
-      // Real X fetch (free tier)
-      const client = new TwitterApi(process.env.TWITTER_BEARER_TOKEN || '')
-      const tweets = await client.v2.userTimeline(project.replace('@', ''), { max_results: 5 })
-      const summary = tweets.data?.data.map(t => `${t.text.slice(0, 100)}...`).join(' | ') || 'No recent posts.'
-      setUpdate(`Latest from ${project}: ${summary}`)
+      const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`)
+      if (!res.ok) throw new Error('Fetch failed')
+      const { summary } = await res.json()
+      setUpdate(summary)
     } catch (error) {
-      setUpdate('Mock: Morph teased L2 hooks—16K likes! Tokenomics AMA tomorrow.')  // Fallback
+      setUpdate('Error fetching update—check console or use mock.')
+      console.error(error)  // For debugging
     }
     setLoading(false)
   }
