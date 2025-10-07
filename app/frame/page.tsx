@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import BaseTxButton from '../../components/BaseTxButton'
-// Removed: import { TwitterApi } from 'twitter-api-v2'  // No longer needed here
 
 export default function WingmanFrame() {
   const [project, setProject] = useState('@MorphLayer')
@@ -14,11 +13,12 @@ export default function WingmanFrame() {
     try {
       const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`)
       if (!res.ok) throw new Error('Fetch failed')
-      const { summary } = await res.json()
-      setUpdate(summary)
+  const { summary, isLive, postCount, errorType, waitUntil } = await res.json()
+
+  setUpdate(`${isLive ? '🔴 Live' : '🔵 Mock'} Update (${postCount} posts):\n${summary}${errorType === 'rate_limit' ? `\n⏳ Resets: ${waitUntil}` : ''}`)
     } catch (error) {
       setUpdate('Error fetching update—check console or use mock.')
-      console.error(error)  // For debugging
+      console.error(error) 
     }
     setLoading(false)
   }
@@ -41,13 +41,13 @@ export default function WingmanFrame() {
       <button onClick={getUpdate} className="w-full p-2 mb-2 bg-blue-600 rounded" disabled={loading}>
         {loading ? 'Fetching...' : 'Get Update'}
       </button>
-      {update && <p className="mb-2 text-sm">{update}</p>}
+      {update && <pre className="whitespace-pre-wrap text-sm mb-2">{update}</pre>}
       <button onClick={genPost} className="w-full p-2 mb-2 bg-green-600 rounded">
         Gen Post Idea
       </button>
       {postIdea && <p className="mb-4 font-mono text-sm">{postIdea}</p>}
       <BaseTxButton project={project} />
-      {/* Add Farcaster post logic here later if needed */}
+      {}
     </div>
   )
 }
