@@ -20,7 +20,7 @@ export default function BaseTxButton({ project }: Props) {
   const trackProject = () => {
     if (!address) return
     writeContract({
-  // use the Base chain object (Base chain id is 8453)
+
   chain: base,
       account: address,
       address: '0xE620D6855B97C357C316b1c43E1BD805Dbf7660e',  
