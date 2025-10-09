@@ -5,6 +5,7 @@ import BaseTxButton from '../../components/BaseTxButton'
 export default function WingmanFrame() {
   const [project, setProject] = useState('@MorphLayer')
   const [update, setUpdate] = useState('')
+  const [summaryLines, setSummaryLines] = useState<string[]>([])
   const [postIdea, setPostIdea] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -13,12 +14,13 @@ export default function WingmanFrame() {
     try {
       const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`)
       if (!res.ok) throw new Error('Fetch failed')
-  const { summary, isLive, postCount, errorType, waitUntil } = await res.json()
-
-  setUpdate(`${isLive ? '🔴 Live' : '🔵 Mock'} Update (${postCount} posts):\n${summary}${errorType === 'rate_limit' ? `\n⏳ Resets: ${waitUntil}` : ''}`)
+      const { summary, isLive, postCount, errorType, waitUntil } = await res.json()
+      const fullUpdate = `${isLive ? '🔴 Live' : '🔵 Mock'} Update (${postCount} posts):\n${summary}${errorType === 'rate_limit' ? `\n⏳ Resets: ${waitUntil}` : ''}`
+      setUpdate(fullUpdate)
+      setSummaryLines(summary.split('\n').filter(line => line.trim()))
     } catch (error) {
       setUpdate('Error fetching update—check console or use mock.')
-      console.error(error) 
+      console.error(error)  // For debugging
     }
     setLoading(false)
   }
@@ -41,7 +43,20 @@ export default function WingmanFrame() {
       <button onClick={getUpdate} className="w-full p-2 mb-2 bg-blue-600 rounded" disabled={loading}>
         {loading ? 'Fetching...' : 'Get Update'}
       </button>
-      {update && <pre className="whitespace-pre-wrap text-sm mb-2">{update}</pre>}
+      {update && (
+        <div className="mb-4">
+          {summaryLines.length > 0 && (
+            <div className="mb-4">
+              {summaryLines.map((line, i) => (
+                <div key={i} className="p-2 bg-gray-800 rounded mb-1 cursor-pointer hover:bg-gray-700" 
+                     onClick={() => {}}>
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <button onClick={genPost} className="w-full p-2 mb-2 bg-green-600 rounded">
         Gen Post Idea
       </button>
