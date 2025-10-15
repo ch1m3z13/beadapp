@@ -88,17 +88,23 @@ export default function WingmanFrame() {
   }
 
   const genPost = () => {
-    if (!update) return alert("Get an update first!")
+    if (!update) return alert('Get an update first!')
     const analysis = sentiment.analyze(update)
     const score = analysis.score
-    let tone = 'neutral'
-    if (score > 0) tone = 'bullish'
-    else if (score < 0) tone = 'cautious'
+    let tone = 'neutral 📊'
+    let sentimentEmoji = '📊'
+    if (score > 0) {
+      tone = 'bullish 🚀'
+      sentimentEmoji = '🚀'
+    } else if (score < 0) {
+      tone = 'cautious ⚠️'
+      sentimentEmoji = '⚠️'
+    }
 
     const ideas = [
-      `"${project}'s latest: ${tone} vibe! Key: ${summaryLines[0] || 'Update'}. Thoughts? #Web3 #${project.replace('@', '')}"`,
-      `"${tone} on ${project}: ${summaryLines[1] || 'Check it out'}. As a holder, I'm ${score > 0 ? 'excited' : 'watching'}! Who's in? #Crypto"`,
-      `"Quick ${tone} take on ${project}: ${summaryLines[2] || 'More to come'}. Bridge now? #${project.replace('@', '')}"`
+      `${sentimentEmoji} ${tone} vibe on ${project}: ${summaryLines[0] || 'Update'}. As a holder, I'm ${score > 0 ? 'excited' : 'watching closely'}! #Web3 #${project.replace('@', '')}`,
+      `${sentimentEmoji} Quick ${tone} take: ${summaryLines[1] || 'Check it out'}. Who's joining? #Crypto`,
+      `${sentimentEmoji} ${tone} insights from ${project}: ${summaryLines[2] || 'More to come'}. Bridge now? #${project.replace('@', '')}`
     ]
 
     setPostIdea(ideas.join('\n\n'))
