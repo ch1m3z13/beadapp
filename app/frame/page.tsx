@@ -1,7 +1,13 @@
 'use client'
-import { useState } from 'react'
-import { useConnect, useDisconnect } from 'wagmi' // Add useConnect, useDisconnect
-import BaseTxButton from '../../components/BaseTxButton'
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import { useConnect, useDisconnect } from 'wagmi'
+import { sdk } from '@farcaster/miniapp-sdk'
+import { supabase } from '../../lib/supabase'
+
+export const dynamicMode = 'force-dynamic'
+
+const DynamicBaseTxButton = dynamic(() => import('../../components/BaseTxButton'), { ssr: false })
 
 export default function WingmanFrame() {
   const [project, setProject] = useState('@MorphLayer')
@@ -9,15 +15,62 @@ export default function WingmanFrame() {
   const [summaryLines, setSummaryLines] = useState<string[]>([])
   const [postIdea, setPostIdea] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showWalletSelect, setShowWalletSelect] = useState(false) // New: Toggle selector
+  const [showWalletSelect, setShowWalletSelect] = useState(false)
+  const [fid, setFid] = useState<number | null>(null)
+  const [watchlist, setWatchlist] = useState<string[]>([])
+  const [errorMessage, setErrorMessage] = useState<string | null>(null) 
 
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
 
+
+  useEffect(() => {
+    const initFarcaster = async () => {
+      await sdk.actions.ready() 
+      
+
+      try {
+        const { token } = await sdk.quickAuth.getToken()
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const userFid = payload.sub
+        setFid(userFid)
+        fetchWatchlist(userFid)
+      } catch (error) {
+        console.error('Farcaster quick auth failed:', error)
+        alert('Failed to authenticate with Farcaster. Please try again.')
+      }
+    }
+
+    initFarcaster()
+  }, [])
+
+  const fetchWatchlist = async (userFid: number) => {
+    if (!userFid) return
+    const { data, error } = await supabase.from('watchlists').select('project').eq('fid', userFid)
+    if (data) setWatchlist(data.map(item => item.project))
+    if (error) {
+      console.error('Watchlist fetch error:', error)
+      setErrorMessage('Failed to fetch watchlist. Try again.')
+    }
+  }
+
+  const addToWatchlist = async () => {
+    if (!fid) return alert('Connect Farcaster wallet first')
+    const { error } = await supabase.from('watchlists').insert({ fid, project })
+    if (error) {
+      console.error('Add watchlist error:', error)
+      setErrorMessage(error.message || 'Unknown error adding to watchlist.')
+    } else {
+      setWatchlist([...watchlist, project])
+      alert('Added to watchlist!')
+    }
+  }
+
   const getUpdate = async () => {
     setLoading(true)
+    setErrorMessage(null) 
     try {
-      const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`)
+      const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`) 
       if (!res.ok) throw new Error('Fetch failed')
       const { summary, isLive, postCount, errorType, waitUntil } = await res.json()
       const fullUpdate = `${isLive ? '🔴 Live' : '🔵 Mock'} Update (${postCount} posts):\n${summary}${errorType === 'rate_limit' ? `\n⏳ Resets: ${waitUntil}` : ''}`
@@ -26,6 +79,7 @@ export default function WingmanFrame() {
     } catch (error) {
       setUpdate('Error fetching update—check console or use mock.')
       console.error(error)
+      setErrorMessage('Failed to get update. Try again.')
     }
     setLoading(false)
   }
@@ -35,9 +89,7 @@ export default function WingmanFrame() {
   }
 
   const handleConnect = (connector: any) => {
-    connect({ connector }, {
-      onSuccess: () => setShowWalletSelect(false), 
-    })
+    connect({ connector }, { onSuccess: () => setShowWalletSelect(false) })
   }
 
   return (
@@ -59,6 +111,7 @@ export default function WingmanFrame() {
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
+      {errorMessage && <p className="text-red-400 mb-2 text-sm">{errorMessage}</p>} 
       {update && (
         <div className="mb-4 overflow-y-auto flex-1">
           {summaryLines.length > 0 && (
@@ -77,14 +130,15 @@ export default function WingmanFrame() {
         Gen Post Idea
       </button>
       {postIdea && <p className="mb-4 font-mono text-sm md:text-base">{postIdea}</p>}
-      <button 
-        onClick={() => handleConnect(connectors.find(c => c.id.includes('walletConnect')))} 
-        className="w-full p-2 mb-2 bg-indigo-600 rounded text-sm md:text-base"
-      >
-        Connect with WalletConnect (QR)
+      <button onClick={addToWatchlist} className="w-full p-2 mb-2 bg-yellow-600 rounded text-sm md:text-base">
+        Add to Watchlist
       </button>
-      <BaseTxButton project={project} />
-      {}
+      {watchlist.length > 0 && (
+        <div className="mb-2 text-sm">
+          <p>Watchlist: {watchlist.join(', ')}</p>
+        </div>
+      )}
+      <DynamicBaseTxButton project={project} />
       {showWalletSelect && (
         <div className="mt-2">
           <select 
@@ -103,7 +157,6 @@ export default function WingmanFrame() {
           </button>
         </div>
       )}
-      {}
       <button 
         onClick={() => setShowWalletSelect(!showWalletSelect)} 
         className="w-full p-1 text-xs text-gray-400 mt-2"

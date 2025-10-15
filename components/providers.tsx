@@ -4,7 +4,7 @@ import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createConfig, http } from 'wagmi'
 import { base } from 'wagmi/chains'
-import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
+import { farcasterFrame, farcasterMiniApp } from '@farcaster/frame-wagmi-connector'
 import { metaMask, injected, walletConnect } from 'wagmi/connectors' 
 
 const queryClient = new QueryClient()
@@ -17,8 +17,8 @@ const config = createConfig({
     [base.id]: http(),
   },
   connectors: [
-    farcasterFrame(),
-    metaMask(), // Fallback for browser
+    farcasterMiniApp(),
+    metaMask(), 
     injected({ target: 'okxWallet' }),
     walletConnect({ projectId }),
   ],
