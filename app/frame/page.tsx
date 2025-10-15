@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import nextDynamic from 'next/dynamic'
 import { useConnect, useDisconnect } from 'wagmi'
 import { sdk } from '@farcaster/miniapp-sdk'
+import Sentiment from 'sentiment'
 import { supabase } from '../../lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,8 @@ export default function WingmanFrame() {
 
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
+
+  const sentiment = new Sentiment()
 
 
   useEffect(() => {
@@ -85,7 +88,20 @@ export default function WingmanFrame() {
   }
 
   const genPost = () => {
-    setPostIdea(`"${project} scaling is ETH's edge—locked in since testnet. Who's bridging? #${project.replace('@', '')}"`)
+    if (!update) return alert("Get an update first!")
+    const analysis = sentiment.analyze(update)
+    const score = analysis.score
+    let tone = 'neutral'
+    if (score > 0) tone = 'bullish'
+    else if (score < 0) tone = 'cautious'
+
+    const ideas = [
+      `"${project}'s latest: ${tone} vibe! Key: ${summaryLines[0] || 'Update'}. Thoughts? #Web3 #${project.replace('@', '')}"`,
+      `"${tone} on ${project}: ${summaryLines[1] || 'Check it out'}. As a holder, I'm ${score > 0 ? 'excited' : 'watching'}! Who's in? #Crypto"`,
+      `"Quick ${tone} take on ${project}: ${summaryLines[2] || 'More to come'}. Bridge now? #${project.replace('@', '')}"`
+    ]
+
+    setPostIdea(ideas.join('\n\n'))
   }
 
   const handleConnect = (connector: any) => {
