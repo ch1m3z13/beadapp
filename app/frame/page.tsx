@@ -1,13 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic'
 import { useConnect, useDisconnect } from 'wagmi'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { supabase } from '../../lib/supabase'
 
-export const dynamicMode = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 
-const DynamicBaseTxButton = dynamic(() => import('../../components/BaseTxButton'), { ssr: false })
+const DynamicBaseTxButton = nextDynamic(() => import('../../components/BaseTxButton'), { ssr: false })
 
 export default function WingmanFrame() {
   const [project, setProject] = useState('@MorphLayer')
