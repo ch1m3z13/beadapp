@@ -166,18 +166,20 @@ export default function WingmanFrame() {
     if (!isSDKLoaded) return alert('SDK not loaded')
     
     try {
-      const result = await sdk.actions.addFrame()
+      await sdk.actions.addFrame()
+
+      const context = await sdk.context
       
-      if (result.added) {
+      if (context.client.added) {
         setMiniAppAdded(true)
         
 
-        if (result.notificationDetails) {
-          setNotificationDetails(result.notificationDetails)
+        if (context.client.notificationDetails) {
+          setNotificationDetails(context.client.notificationDetails)
           setNotificationsEnabled(true)
           
-
-          console.log('Notifications enabled:', result.notificationDetails)
+          
+          console.log('Notifications enabled:', context.client.notificationDetails)
           
           if (fid) {
             await supabase.from('users').upsert({ 
