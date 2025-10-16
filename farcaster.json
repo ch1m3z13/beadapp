@@ -1,0 +1,15 @@
+{
+  "name": "Bead",
+  "subtitle": "Your Web3 Wingman",
+  "description": "Bead keeps you in the loop with live updates, AI summaries, and onchain tracking for your favorite crypto projects — all inside Farcaster.",
+  "splashBackgroundColor": "#000000",
+  "tags": ["social", "web3", "tracking", "ai", "base"],
+  "tagline": "Track. Summarize. Cast. Onchain.",
+  "buttonTitle": "Open Bead",
+  "ogTitle": "Bead – Your Web3 Wingman",
+  "ogDescription": "Stay ahead of crypto trends with Bead: get AI-powered summaries, track projects on Base, and manage your Web3 watchlist — all within Farcaster.",
+  "ogImageUrl": "https://beadapp.vercel.app/public/og-image.png",
+  "castShareUrl": "https://beadapp.vercel.app/frame",
+  "homeUrl": "https://beadapp.vercel.app",
+  "webhookUrl": "https://beadapp.vercel.app/api/webhook"
+}
