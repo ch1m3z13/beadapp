@@ -11,10 +11,8 @@ export const dynamic = 'force-dynamic'
 const DynamicBaseTxButton = nextDynamic(() => import('../../components/BaseTxButton'), { ssr: false })
 
 export default function WingmanFrame() {
-
   const [view, setView] = useState<'list' | 'project'>('list')
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
-  
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [project, setProject] = useState('@MorphLayer')
   const [update, setUpdate] = useState('')
@@ -26,6 +24,9 @@ export default function WingmanFrame() {
   const [watchlist, setWatchlist] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [username, setUsername] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<'all' | 'trending' | 'saved'>('all')
+  const [sentimentPoll, setSentimentPoll] = useState({ bullish: 0, neutral: 0, cautious: 0 })
+  const [dailySummary, setDailySummary] = useState<string>('') // New: Daily summary for list view
 
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
@@ -35,10 +36,8 @@ export default function WingmanFrame() {
   useEffect(() => {
     const initFarcaster = async () => {
       try {
-
         await sdk.actions.ready()
         
-
         const { token } = await sdk.quickAuth.getToken()
         const payload = JSON.parse(atob(token.split('.')[1]))
         const userFid = payload.sub
@@ -47,13 +46,13 @@ export default function WingmanFrame() {
         
         await Promise.all([
           fetchWatchlist(userFid),
-          fetchNotificationStatus(userFid)
+          fetchNotificationStatus(userFid),
+          fetchDailySummary(userFid) // New: Load daily summary on init
         ])
       } catch (error) {
         console.error('Farcaster init failed:', error)
         setErrorMessage('Failed to authenticate with Farcaster')
         
-
         try {
           await sdk.actions.ready()
         } catch (readyError) {
@@ -80,6 +79,23 @@ export default function WingmanFrame() {
     }
   }
 
+  // New: Fetch combined daily summary for all watchlist projects
+  const fetchDailySummary = async (userFid: number) => {
+    if (!userFid) return
+    const { data: projects } = await supabase.from('watchlists').select('project').eq('fid', userFid)
+    if (!projects || projects.length === 0) return
+
+    let summary = 'Daily Summary:\n'
+    for (const { project } of projects) {
+      const res = await fetch(`/api/update?project=${encodeURIComponent(project)}`)
+      if (res.ok) {
+        const { summary: projSummary } = await res.json()
+        summary += `${project}: ${projSummary.slice(0, 50)}...\n`
+      }
+    }
+    setDailySummary(summary)
+  }
+
   const addToWatchlist = async () => {
     if (!fid) return alert('Connect Farcaster wallet first')
     const { error } = await supabase.from('watchlists').insert({ fid, project })
@@ -89,6 +105,7 @@ export default function WingmanFrame() {
     } else {
       setWatchlist([...watchlist, project])
       alert('Added to watchlist!')
+      fetchDailySummary(fid) // Refresh summary
     }
   }
 
@@ -96,7 +113,6 @@ export default function WingmanFrame() {
     setProject(projectName)
     setSelectedProject(projectName)
     setView('project')
-
     getUpdateForProject(projectName)
   }
 
@@ -145,8 +161,23 @@ export default function WingmanFrame() {
     setPostIdea(ideas.join('\n\n'))
   }
 
-  const handleConnect = (connector: any) => {
-    connect({ connector }, { onSuccess: () => setShowWalletSelect(false) })
+  const handleSentimentVote = (vote: 'bullish' | 'neutral' | 'cautious') => {
+    setSentimentPoll(prev => ({ ...prev, [vote]: prev[vote] + 1 }))
+    // Optional: Send to Supabase for global stats
+  }
+
+  const handleAddMiniApp = async () => {
+    if (!isSDKLoaded) return alert('SDK not loaded')
+    
+    const result = await addMiniApp()
+    if (result.added && result.notificationDetails) {
+      setNotificationEnabled(true)
+      alert('Mini App added and notifications enabled!')
+    } else if (result.added) {
+      alert('Mini App added, but notifications not enabled.')
+    } else {
+      alert('Failed to add Mini App: ' + result.reason)
+    }
   }
 
   const toggleNotifications = async () => {
@@ -157,185 +188,171 @@ export default function WingmanFrame() {
     else setNotificationsEnabled(newEnabled)
   }
 
+  const handleConnect = (connector: any) => {
+    connect({ connector }, { onSuccess: () => setShowWalletSelect(false) })
+  }
 
+  // LIST VIEW - Sketch-inspired: "My Watchlist" with projects as rectangular cards, Add New Project at top
   if (view === 'list') {
     return (
-      <div className="p-4 bg-black text-white max-w-md min-h-screen">
-        {/* Profile Header */}
-        <div className="flex items-center mb-6 pb-4 border-b border-gray-700">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center font-bold text-xl">
-            {username.charAt(0).toUpperCase()}
-          </div>
-          <div className="ml-3">
-            <h2 className="font-bold text-lg">{username}</h2>
-            <p className="text-xs text-gray-400">My Watchlist</p>
+      <div className="min-h-screen bg-black text-white p-4 space-y-4">
+        {/* Top Add New Project */}
+        <div className="bg-gray-900 rounded-2xl p-4 border border-gray-700">
+          <h2 className="text-white font-bold text-lg mb-3">Add New Project</h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+              placeholder="@MorphLayer"
+              className="flex-1 bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
+            />
+            <button
+              onClick={addToWatchlist}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition"
+            >
+              +
+            </button>
           </div>
         </div>
 
-        {/* Watchlist Projects */}
-        <div className="mb-4">
-          <h3 className="text-sm text-gray-400 mb-2 uppercase tracking-wide">Projects</h3>
+        {/* My Watchlist Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-white font-bold text-xl">My Watchlist</h1>
+          <span className="text-gray-400 text-sm">{watchlist.length} projects</span>
+        </div>
+
+        {/* Project Cards - Rectangular blocks */}
+        <div className="space-y-3">
           {watchlist.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No projects yet</p>
-              <p className="text-xs mt-2">Add one below to get started</p>
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">👀</div>
+              <p className="text-gray-400 mb-2">No projects tracked yet</p>
+              <p className="text-gray-500 text-sm">Add a project above to get started</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {watchlist.map((proj, idx) => (
-                <div 
-                  key={idx}
-                  onClick={() => openProject(proj)}
-                  className="p-4 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-800 transition border border-gray-800 hover:border-purple-500"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">{proj}</p>
-                      <p className="text-xs text-gray-400">Tap to view updates</p>
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+            watchlist.map((proj, idx) => (
+              <div
+                key={idx}
+                onClick={() => openProject(proj)}
+                className="bg-gray-900 rounded-2xl p-4 border border-gray-700 cursor-pointer hover:border-purple-500 hover:bg-gray-800 transition"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-white font-bold text-lg">{proj}</h3>
+                  <div className="text-gray-400 text-sm">View</div>
                 </div>
-              ))}
-            </div>
+                <p className="text-gray-500 text-sm">Tap to see updates</p>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Add New Project */}
-        <div className="mt-6 pt-6 border-t border-gray-700">
-          <h3 className="text-sm text-gray-400 mb-2 uppercase tracking-wide">Add New Project</h3>
-          <input
-            type="text"
-            value={project}
-            onChange={(e) => setProject(e.target.value)}
-            placeholder="@MorphLayer"
-            className="w-full p-3 mb-2 bg-gray-900 rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none"
-          />
-          <button 
-            onClick={addToWatchlist} 
-            className="w-full p-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition"
+        {/* Daily Summary Card - Prominent block */}
+        <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-4 border border-purple-500">
+          <h3 className="text-purple-400 font-bold text-sm mb-2">Daily Summary</h3>
+          <p className="text-gray-300 text-xs leading-relaxed">{dailySummary || 'No updates today. Check back soon!'}</p>
+          <button
+            onClick={() => fetchDailySummary(fid)}
+            className="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-xl text-xs font-semibold transition"
           >
-            + Add to Watchlist
+            Refresh
           </button>
-          {errorMessage && <p className="text-red-400 mt-2 text-xs">{errorMessage}</p>}
         </div>
 
-        {/* Settings */}
-        <div className="mt-6 pt-6 border-t border-gray-700">
-          <button 
-            onClick={toggleNotifications} 
-            className="w-full p-3 bg-gray-900 hover:bg-gray-800 rounded-lg flex items-center justify-between transition"
-          >
-            <span>Daily Notifications</span>
-            <div className={`w-12 h-6 rounded-full transition ${notificationsEnabled ? 'bg-green-500' : 'bg-gray-700'}`}>
-              <div className={`w-5 h-5 bg-white rounded-full mt-0.5 transition transform ${notificationsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-            </div>
-          </button>
-        </div>
+        {/* Wallet Toggle */}
+        <button 
+          onClick={() => setShowWalletSelect(!showWalletSelect)} 
+          className="w-full p-1 text-xs text-gray-400 mt-2"
+        >
+          {showWalletSelect ? 'Hide' : 'Change Wallet'}
+        </button>
       </div>
     )
   }
 
-
+  // PROJECT VIEW - Sketch: Back, Summary, Post Gen, Track on Base (auto-adds)
   return (
-    <div className="p-4 bg-black text-white max-w-md min-h-screen">
-      {/* Back button */}
-      <button 
-        onClick={() => setView('list')}
-        className="flex items-center text-gray-400 hover:text-white mb-4 transition"
-      >
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back
-      </button>
-
-      {/* Project Header */}
-      <div className="mb-6 pb-4 border-b border-gray-700">
-        <h1 className="text-2xl font-bold">{project}</h1>
-        <p className="text-sm text-gray-400">Summary & Post Generator</p>
-      </div>
-
-      {/* Get Update Button */}
-      <button 
-        onClick={getUpdate} 
-        className="w-full p-3 mb-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition disabled:opacity-50" 
-        disabled={loading}
-      >
-        {loading ? 'Fetching...' : '🔄 Get Update'}
-      </button>
-
-      {loading && (
-        <div className="w-full flex justify-center mb-4">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      )}
-
-      {errorMessage && <p className="text-red-400 mb-4 text-sm">{errorMessage}</p>}
-
-      {/* Summary Display */}
-      {update && summaryLines.length > 0 && (
-        <div className="mb-4 max-h-64 overflow-y-auto">
-          <h3 className="text-sm text-gray-400 mb-2 uppercase tracking-wide">Latest Updates</h3>
-          {summaryLines.map((line, i) => (
-            <div 
-              key={i} 
-              className="p-3 bg-gray-900 rounded-lg mb-2 text-sm border border-gray-800 hover:border-gray-700 transition"
-            >
-              {line}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="space-y-2 mb-4">
-        <button 
-          onClick={genPost} 
-          className="w-full p-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition"
+    <div className="min-h-screen bg-black text-white p-4 space-y-4">
+      {/* Back Header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setView('list')}
+          className="text-gray-400 hover:text-white"
         >
-          ✨ Gen Post Idea
+          ← Back
         </button>
-        
-        <DynamicBaseTxButton project={project} />
+        <h1 className="text-white font-bold text-xl flex-1">{project}</h1>
       </div>
 
-      {/* Generated Post */}
+      {/* Summary - Auto-generated on open */}
+      <div className="bg-gray-900 rounded-2xl p-4 border border-gray-700 space-y-3">
+        <h2 className="text-white font-bold text-lg">Summary</h2>
+        {loading ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {summaryLines.map((line, i) => (
+              <p key={i} className="text-gray-300 text-sm">{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Post Gen */}
+      <button
+        onClick={genPost}
+        className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-semibold text-lg transition"
+        disabled={!update}
+      >
+        ✨ Generate Post Idea
+      </button>
+
       {postIdea && (
-        <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
-          <h3 className="text-sm text-gray-400 mb-2 uppercase tracking-wide">Generated Post</h3>
-          <p className="text-sm font-mono whitespace-pre-wrap">{postIdea}</p>
+        <div className="bg-gray-900 rounded-2xl p-4 border border-gray-700">
+          <h3 className="text-white font-bold text-lg mb-3">Your Post Idea</h3>
+          <p className="text-gray-300 text-sm whitespace-pre-wrap mb-3">{postIdea}</p>
+          <button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-semibold transition">
+            Cast to Farcaster
+          </button>
         </div>
       )}
 
-      {/* Wallet Management */}
+      {/* Track on Base - Auto-adds to watchlist */}
+      <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-4 border border-purple-500">
+        <DynamicBaseTxButton project={project} />
+        <p className="text-purple-400 text-xs mt-2 text-center">* Auto-adds to watchlist on success</p>
+      </div>
+
+      {errorMessage && (
+        <div className="bg-red-900/20 border border-red-500 rounded-2xl p-4">
+          <p className="text-red-400 text-sm">{errorMessage}</p>
+        </div>
+      )}
+
+      {/* Wallet Selector */}
       {showWalletSelect && (
-        <div className="mt-4 p-4 bg-gray-900 rounded-lg">
+        <div className="mt-2 space-y-1">
           <select 
             onChange={(e) => handleConnect(connectors.find(c => c.name === e.target.value))}
-            className="w-full p-2 bg-gray-800 rounded mb-2"
+            className="w-full p-2 bg-gray-800 rounded text-xs"
           >
             <option value="">Select Wallet</option>
             {connectors.map((connector) => (
               <option key={connector.id} value={connector.name}>
-                {connector.name} {isPending && '(connecting...)'}
+                {connector.name} {isPending && connector.id === 'pending' ? '(connecting...)' : ''}
               </option>
             ))}
           </select>
-          <button 
-            onClick={() => setShowWalletSelect(false)} 
-            className="w-full p-2 text-sm text-gray-400 hover:text-white"
-          >
+          <button onClick={() => setShowWalletSelect(false)} className="w-full p-1 text-xs text-gray-400 rounded">
             Cancel
           </button>
         </div>
       )}
-      
       <button 
         onClick={() => setShowWalletSelect(!showWalletSelect)} 
-        className="w-full p-2 text-xs text-gray-400 hover:text-white mt-2"
+        className="w-full p-1 text-xs text-gray-400 mt-2"
       >
         {showWalletSelect ? 'Hide' : 'Change Wallet'}
       </button>
