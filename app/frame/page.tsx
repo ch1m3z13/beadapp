@@ -34,19 +34,31 @@ export default function WingmanFrame() {
 
   useEffect(() => {
     const initFarcaster = async () => {
-      await sdk.actions.ready()
-      
       try {
+
+        await sdk.actions.ready()
+        
+
         const { token } = await sdk.quickAuth.getToken()
         const payload = JSON.parse(atob(token.split('.')[1]))
         const userFid = payload.sub
         setFid(userFid)
         setUsername(payload.username || `User ${userFid}`)
-        fetchWatchlist(userFid)
-        fetchNotificationStatus(userFid)
+        
+        await Promise.all([
+          fetchWatchlist(userFid),
+          fetchNotificationStatus(userFid)
+        ])
       } catch (error) {
-        console.error('Farcaster quick auth failed:', error)
+        console.error('Farcaster init failed:', error)
         setErrorMessage('Failed to authenticate with Farcaster')
+        
+
+        try {
+          await sdk.actions.ready()
+        } catch (readyError) {
+          console.error('Ready call failed:', readyError)
+        }
       }
     }
 
@@ -71,7 +83,6 @@ export default function WingmanFrame() {
   const addToWatchlist = async () => {
     if (!fid) return alert('Connect Farcaster wallet first')
     const { error } = await supabase.from('watchlists').insert({ fid, project })
-    setProject('');
     if (error) {
       console.error('Add watchlist error:', error)
       setErrorMessage(error.message || 'Unknown error adding to watchlist.')
@@ -144,28 +155,6 @@ export default function WingmanFrame() {
     const { error } = await supabase.from('users').upsert({ fid, notifications_enabled: newEnabled })
     if (error) console.error('Notifications toggle error:', error)
     else setNotificationsEnabled(newEnabled)
-  }
-
-
-  const handleTrackOnBase = async () => {
-    if (!fid || !project) return alert('Connect Farcaster wallet first')
-    try {
-      const { data, error } = await supabase
-        .from('watchlists')
-        .upsert({ fid, project })
-
-      if (error) {
-        console.error('Auto-add watchlist error:', error)
-        setErrorMessage('Failed to sync watchlist.')
-      } else {
-        if (!watchlist.includes(project)) {
-          setWatchlist([...watchlist, project])
-        }
-        console.log(`✅ ${project} added to watchlist on Track on Base`)
-      }
-    } catch (err) {
-      console.error('Track on Base handler error:', err)
-    }
   }
 
 
@@ -310,10 +299,7 @@ export default function WingmanFrame() {
           ✨ Gen Post Idea
         </button>
         
-        <div onClick={handleTrackOnBase}>
-          <DynamicBaseTxButton project={project} />
-        </div>
-
+        <DynamicBaseTxButton project={project} />
       </div>
 
       {/* Generated Post */}
