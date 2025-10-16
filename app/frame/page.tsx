@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic'
 const DynamicBaseTxButton = nextDynamic(() => import('../../components/BaseTxButton'), { ssr: false })
 
 export default function WingmanFrame() {
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [project, setProject] = useState('@MorphLayer')
   const [update, setUpdate] = useState('')
   const [summaryLines, setSummaryLines] = useState<string[]>([])
@@ -114,6 +115,14 @@ export default function WingmanFrame() {
     connect({ connector }, { onSuccess: () => setShowWalletSelect(false) })
   }
 
+  const toggleNotifications = async () => {
+  if (!fid) return alert('Connect Farcaster wallet first')
+  const newEnabled = !notificationsEnabled
+  const { error } = await supabase.from('users').upsert({ fid, notifications_enabled: newEnabled })
+  if (error) console.error('Notifications toggle error:', error)
+  else setNotificationsEnabled(newEnabled)
+}
+
   return (
     <div className="p-4 bg-black text-white max-w-md h-[600px] flex flex-col min-h-screen md:min-h-[600px]">
       <h1 className="text-xl font-bold mb-4 text-center">Web3 Wingman 🚀</h1>
@@ -185,6 +194,9 @@ export default function WingmanFrame() {
       >
         {showWalletSelect ? 'Hide' : 'Change Wallet'}
       </button>
+      <button onClick={toggleNotifications} className="w-full p-2 mb-2 bg-purple-600 rounded text-sm md:text-base">
+        {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
+        </button>
     </div>
   )
 }
