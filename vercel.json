@@ -1,8 +1,15 @@
 {
+  "redirects": [
+    {
+      "source": "/.well-known/farcaster.json",
+      "destination": "https://api.farcaster.xyz/miniapps/hosted-manifest/0199ee54-f8e7-e89a-6b8f-c5fdadfa7df5",
+      "permanent": false
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron-notifications",
-      "schedule": "0 9 * * *" 
+      "schedule": "0 9 * * *"
     }
   ]
 }
